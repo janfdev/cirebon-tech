@@ -56,10 +56,10 @@ export function UserButton() {
                         <p className="text-xs text-muted-foreground">{session?.user.email}</p>
                     )}
                 </div>
-{/* 
+
                 <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
-                </DropdownMenuItem> */}
+                    <Link href="/dashboard">Dashboard</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="w-full text-left flex items-center" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />

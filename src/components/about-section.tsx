@@ -31,16 +31,16 @@ const AboutSection = () => {
               </h2>
 
               <p className="mt-4 text-sm sm:text-base text-muted-foreground">
-                Agro dikembangkan untuk membantu petani menentukan waktu tanam
+                AgroWin dikembangkan untuk membantu petani menentukan waktu tanam
                 dan panen terbaik, mendeteksi tanda awal penyakit tanaman, serta
                 memahami kondisi lingkungan melalui analisis berbasis kecerdasan
                 buatan.
               </p>
 
               <p className="mt-3 text-sm sm:text-base text-muted-foreground">
-                Saat ini Agro masih dalam tahap pengembangan dan uji coba
-                internal dengan fokus pada penyempurnaan model AI serta
-                kemudahan penggunaan di lapangan.
+                Membantu petani menanam tanaman dengan efisien dan menguntungkan. 
+                AgroWin adalah aplikasi web yang membantu petani menentukan waktu tanam 
+                dan panen terbaik melalui analisis data cuaca dan lingkungan secara cerdas.
               </p>
             </div>
           </div>

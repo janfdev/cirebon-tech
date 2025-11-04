@@ -15,8 +15,9 @@ const AboutSection = () => {
             <div className="relative w-full aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3]">
               <Image
                 src={
-                  "https://res.cloudinary.com/deifn0fgm/image/upload/v1762186270/drone-ai_wlrcdm.webp"
+                  "https://res.cloudinary.com/deifn0fgm/image/upload/v1762278107/Gemini_Generated_Image_34x57i34x57i34x5_n06fst.png"
                 }
+                quality={75}
                 alt="Ilustrasi drone berbasis AI memantau lahan pertanian"
                 fill
                 priority

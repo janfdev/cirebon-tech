@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 import { hostname } from "os";
+import withPWA from "next-pwa";
+
+const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
@@ -17,4 +21,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA({
+  dest: 'public',
+  disable: isDev,
+  // disable: false,
+})(nextConfig)
+
+// export default nextConfig;

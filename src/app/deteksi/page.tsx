@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { MapPin, Calculator, ScanSearch, AlertCircle, Cloud } from "lucide-react"
+import { MapPin, Calculator, ScanSearch, AlertCircle, Cloud, Sprout } from "lucide-react"
 import AuthGuard from "@/components/AuthGuard"
 import { CameraCapture } from "@/components/camera-capture"
 import { ImageUploader } from "@/components/image-uploader"
@@ -16,7 +16,26 @@ type Disease = {
   treatment: string[]
 }
 
-type CropKey = "padi" | "jagung" | "cabai"
+type CropKey =
+  | "tomat"
+  | "cabai"
+  | "selada"
+  | "wortel"
+  | "bayam"
+  | "bawang-merah"
+  | "bawang-putih"
+  | "kentang"
+  | "terong"
+  | "mentimun"
+  | "kangkung"
+  | "sawi"
+  | "semangka"
+  | "melon"
+  | "jeruk"
+  | "mangga"
+  | "padi"
+  | "jagung"
+  | "kedelai"
 
 type DiseaseState = {
   image: File | null
@@ -28,13 +47,16 @@ type DiseaseState = {
 }
 
 type HarvestState = {
-  cropType: string
+  cropType: CropKey
   plantingDate: string
-  landArea: string
-  expectedYield: string
+  landArea: string // dalam hektar (input user)
   pricePerKg: string
-  totalSalesPrice: string
-  harvestDate: string
+  // Field untuk hasil dari API
+  estimatedYieldKg?: string
+  estimatedIncome?: string
+  harvestDate?: string
+  notes?: string
+  category?: string
 }
 
 type RecommendationResult = {
@@ -54,7 +76,7 @@ type RecommendationResult = {
 }
 
 type PlantingState = {
-  selectedCrop: string
+  selectedCrop: CropKey
   locationName: string
   isGettingRecommendation: boolean
   recommendationResult: RecommendationResult | null
@@ -75,10 +97,7 @@ export default function DeteksiPage() {
     cropType: "padi",
     plantingDate: "",
     landArea: "",
-    expectedYield: "",
     pricePerKg: "",
-    totalSalesPrice: "",
-    harvestDate: "",
   })
 
   const [plantingData, setPlantingData] = useState<PlantingState>({
@@ -88,20 +107,29 @@ export default function DeteksiPage() {
     recommendationResult: null,
   })
 
+  // Konversi hektar ke m²
+  const hectareToSquareMeter = (hectare: number) => hectare * 10000
+
   const calculateHarvest = async () => {
     if (!harvestData.plantingDate || !harvestData.landArea) {
-      alert("Silakan isi semua field")
+      alert("Silakan isi Tanggal Tanam dan Luas Lahan")
       return
     }
 
     try {
       setLoading(true)
+
+      // Convert hektare to m²
+      const areaInM2 = hectareToSquareMeter(Number.parseFloat(harvestData.landArea))
+
       const requestBody = {
         crop_type: harvestData.cropType,
-        area: Number.parseFloat(harvestData.landArea),
+        area: areaInM2,
         planting_date: harvestData.plantingDate,
         price_per_kg: harvestData.pricePerKg ? Number.parseFloat(harvestData.pricePerKg) : undefined,
       }
+
+      console.log("Request body:", requestBody) // Debug
 
       const response = await fetch("/api/harvest", {
         method: "POST",
@@ -114,19 +142,22 @@ export default function DeteksiPage() {
       const data = await response.json()
 
       if (response.ok) {
-        setLoading(false)
         setHarvestData((prev) => ({
           ...prev,
-          expectedYield: data.estimated_yield.toString(),
-          totalSalesPrice: data.estimated_income.toString(),
-          harvestDate: data.estimated_harvest_date,
+          estimatedYieldKg: data.data.estimated_yield_kg,
+          estimatedIncome: data.data.estimated_income,
+          harvestDate: data.data.estimated_harvest_date,
+          notes: data.data.notes,
+          category: data.data.category,
         }))
       } else {
-        alert(data.error || "Gagal menghitung estimasi panen")
+        alert(data.error || data.message || "Gagal menghitung estimasi panen")
       }
     } catch (error) {
       console.error("Error calculating harvest:", error)
       alert(`Gagal menghitung estimasi panen: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -215,8 +246,8 @@ export default function DeteksiPage() {
     try {
       const geoResponse = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          plantingData.locationName,
-        )}&limit=1`,
+          plantingData.locationName
+        )}&limit=1`
       )
       const geoData = await geoResponse.json()
 
@@ -269,7 +300,7 @@ export default function DeteksiPage() {
           const lon = position.coords.longitude.toString()
 
           const geoResponse = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
           )
           const geoData = await geoResponse.json()
 
@@ -290,35 +321,51 @@ export default function DeteksiPage() {
         (error) => {
           console.error("Geolocation error:", error)
           alert("Gagal mendapatkan lokasi. Pastikan izin lokasi diberikan.")
-        },
+        }
       )
     } else {
       alert("Geolocation tidak didukung browser Anda.")
     }
   }
 
-  const cropOptions = [
+  // Daftar tanaman yang tersedia (sesuai backend)
+  const cropOptions: { value: CropKey; label: string }[] = [
     { value: "padi", label: "Padi" },
     { value: "jagung", label: "Jagung" },
     { value: "kedelai", label: "Kedelai" },
     { value: "cabai", label: "Cabai" },
     { value: "tomat", label: "Tomat" },
-    { value: "bawang_merah", label: "Bawang Merah" },
-    { value: "bawang_putih", label: "Bawang Putih" },
-    { value: "kentang", label: "Kentang" },
+    { value: "selada", label: "Selada" },
     { value: "wortel", label: "Wortel" },
     { value: "bayam", label: "Bayam" },
+    { value: "bawang-merah", label: "Bawang Merah" },
+    { value: "bawang-putih", label: "Bawang Putih" },
+    { value: "kentang", label: "Kentang" },
+    { value: "terong", label: "Terong" },
+    { value: "mentimun", label: "Mentimun" },
     { value: "kangkung", label: "Kangkung" },
     { value: "sawi", label: "Sawi" },
-    { value: "terong", label: "Terong" },
-    { value: "timun", label: "Timun" },
-    { value: "labu", label: "Labu" },
-    { value: "kacang_tanah", label: "Kacang Tanah" },
-    { value: "kacang_panjang", label: "Kacang Panjang" },
-    { value: "singkong", label: "Singkong" },
-    { value: "ubi_jalar", label: "Ubi Jalar" },
-    { value: "buncis", label: "Buncis" },
+    { value: "semangka", label: "Semangka" },
+    { value: "melon", label: "Melon" },
+    { value: "jeruk", label: "Jeruk (Pohon)" },
+    { value: "mangga", label: "Mangga (Pohon)" },
   ]
+
+  // Format rupiah
+  const formatRupiah = (angka: string) => {
+    const num = Number.parseFloat(angka)
+    if (isNaN(num)) return "Rp 0"
+    return `Rp ${num.toLocaleString("id-ID")}`
+  }
+
+  // Format tanggal
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
 
   return (
     <AuthGuard>
@@ -335,7 +382,7 @@ export default function DeteksiPage() {
             </p>
           </div>
           <div>
-            <ScanSearch className="size-52" />
+            <Sprout className="size-52" />
           </div>
         </section>
 
@@ -345,7 +392,7 @@ export default function DeteksiPage() {
             <div className="space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Planting Recommendation */}
-                <div className="bg-card border border-border rounded-xl p-6">
+                <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
                   <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
                     <MapPin className="text-primary" />
                     Rekomendasi Tanam Optimal
@@ -360,10 +407,10 @@ export default function DeteksiPage() {
                           onChange={(e) =>
                             setPlantingData((prev) => ({
                               ...prev,
-                              selectedCrop: e.target.value,
+                              selectedCrop: e.target.value as CropKey,
                             }))
                           }
-                          className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                         >
                           {cropOptions.map((crop) => (
                             <option key={crop.value} value={crop.value}>
@@ -385,7 +432,7 @@ export default function DeteksiPage() {
                               locationName: e.target.value,
                             }))
                           }
-                          className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                         />
                       </div>
                     </div>
@@ -393,7 +440,7 @@ export default function DeteksiPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={getCurrentLocation}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground hover:bg-muted transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground hover:bg-muted transition-colors duration-200"
                       >
                         <MapPin size={16} />
                         Gunakan Lokasi Saat Ini
@@ -410,14 +457,14 @@ export default function DeteksiPage() {
                     </div>
 
                     {plantingData.recommendationResult && (
-                      <div className="mt-4 p-4 bg-muted rounded-lg space-y-4">
+                      <div className="mt-4 p-4 bg-muted rounded-lg space-y-4 animate-in fade-in-50">
                         <h4 className="font-semibold text-foreground">Rekomendasi Tanam:</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <p className="text-sm">
                               <strong>Status:</strong>
                               <span
-                                className={`ml-2 px-2 py-1 rounded text-xs ${
+                                className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
                                   plantingData.recommendationResult.recommendation.status === "optimal"
                                     ? "bg-green-100 text-green-800"
                                     : plantingData.recommendationResult.recommendation.status === "good"
@@ -443,20 +490,26 @@ export default function DeteksiPage() {
                               )}
                           </div>
                           <div className="space-y-1">
-                            <p className="text-sm">
-                              <strong>Suhu Rata-rata:</strong>{" "}
-                              {plantingData.recommendationResult.recommendation.avgTemp}
-                              °C
-                            </p>
-                            <p className="text-sm">
-                              <strong>Total Curah Hujan:</strong>{" "}
-                              {plantingData.recommendationResult.recommendation.totalRainfall}
-                              mm
-                            </p>
-                            <p className="text-sm">
-                              <strong>Kelembaban Rata-rata:</strong>{" "}
-                              {plantingData.recommendationResult.recommendation.avgHumidity}%
-                            </p>
+                            {plantingData.recommendationResult.recommendation.avgTemp && (
+                              <p className="text-sm">
+                                <strong>Suhu Rata-rata:</strong>{" "}
+                                {plantingData.recommendationResult.recommendation.avgTemp}
+                                °C
+                              </p>
+                            )}
+                            {plantingData.recommendationResult.recommendation.totalRainfall && (
+                              <p className="text-sm">
+                                <strong>Total Curah Hujan:</strong>{" "}
+                                {plantingData.recommendationResult.recommendation.totalRainfall}
+                                mm
+                              </p>
+                            )}
+                            {plantingData.recommendationResult.recommendation.avgHumidity && (
+                              <p className="text-sm">
+                                <strong>Kelembaban Rata-rata:</strong>{" "}
+                                {plantingData.recommendationResult.recommendation.avgHumidity}%
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -465,7 +518,7 @@ export default function DeteksiPage() {
                 </div>
 
                 {/* Harvest Calculator */}
-                <div className="bg-card border border-border rounded-xl p-6">
+                <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
                   <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
                     <Calculator className="text-primary" />
                     Kalkulator Estimasi Panen
@@ -479,15 +532,16 @@ export default function DeteksiPage() {
                         onChange={(e) =>
                           setHarvestData((prev) => ({
                             ...prev,
-                            cropType: e.target.value,
+                            cropType: e.target.value as CropKey,
                           }))
                         }
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                       >
-                        <option value="padi">Padi</option>
-                        <option value="jagung">Jagung</option>
-                        <option value="kacang">Kacang Tanah</option>
-                        <option value="cabai">Cabai</option>
+                        {cropOptions.map((crop) => (
+                          <option key={crop.value} value={crop.value}>
+                            {crop.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -502,7 +556,7 @@ export default function DeteksiPage() {
                             plantingDate: e.target.value,
                           }))
                         }
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                       />
                     </div>
 
@@ -511,6 +565,7 @@ export default function DeteksiPage() {
                       <input
                         type="number"
                         placeholder="Contoh: 2.5"
+                        step="0.1"
                         value={harvestData.landArea}
                         onChange={(e) =>
                           setHarvestData((prev) => ({
@@ -518,17 +573,7 @@ export default function DeteksiPage() {
                             landArea: e.target.value,
                           }))
                         }
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">Estimasi Hasil Panen</label>
-                      <input
-                        type="text"
-                        value={harvestData.expectedYield ? `${harvestData.expectedYield} ton` : ""}
-                        disabled
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-foreground focus:outline-none"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                       />
                     </div>
 
@@ -544,7 +589,17 @@ export default function DeteksiPage() {
                             pricePerKg: e.target.value,
                           }))
                         }
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-2">Estimasi Hasil Panen</label>
+                      <input
+                        type="text"
+                        value={harvestData.estimatedYieldKg ? `${harvestData.estimatedYieldKg} kg` : "-"}
+                        disabled
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-foreground font-medium"
                       />
                     </div>
 
@@ -552,13 +607,9 @@ export default function DeteksiPage() {
                       <label className="block text-sm font-semibold text-foreground mb-2">Total Harga Penjualan</label>
                       <input
                         type="text"
-                        value={
-                          harvestData.totalSalesPrice
-                            ? `Rp ${Number(harvestData.totalSalesPrice).toLocaleString("id-ID")}`
-                            : ""
-                        }
+                        value={harvestData.estimatedIncome ? formatRupiah(harvestData.estimatedIncome) : "-"}
                         disabled
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-foreground focus:outline-none font-semibold"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-foreground font-bold"
                       />
                     </div>
                   </div>
@@ -566,39 +617,52 @@ export default function DeteksiPage() {
                   <button
                     disabled={loading}
                     onClick={calculateHarvest}
-                    className="w-full bg-accent text-accent-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                    className="w-full bg-accent text-accent-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Menghitung..." : "Hitung Estimasi Panen"}
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="h-4 w-4 border-2 border-accent-foreground border-t-transparent rounded-full animate-spin"></span>
+                        Menghitung...
+                      </span>
+                    ) : (
+                      "Hitung Estimasi Panen"
+                    )}
                   </button>
 
-                  {harvestData.expectedYield && (
-                    <div className="mt-6 space-y-3">
-                      <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                  {harvestData.estimatedYieldKg && (
+                    <div className="mt-6 space-y-3 animate-in fade-in-50">
+                      <div className="p-4 bg-primary/10 border-l-4 border-primary rounded-lg">
                         <p className="text-sm text-foreground">
                           <strong>Hasil Estimasi:</strong> Berdasarkan data Anda, estimasi hasil panen adalah{" "}
-                          <span className="text-primary font-bold">{harvestData.expectedYield} ton</span> untuk luas
-                          lahan {harvestData.landArea} hektar.
+                          <span className="text-primary font-bold">
+                            {harvestData.estimatedYieldKg} kg
+                          </span>{" "}
+                          (≈{" "}
+                          <span className="text-primary font-bold">
+                            {(Number(harvestData.estimatedYieldKg) / 1000).toFixed(2)} ton
+                          </span>
+                          )
                         </p>
                         {harvestData.harvestDate && (
                           <p className="text-sm text-foreground mt-2">
-                            <strong>Tanggal Panen:</strong>{" "}
-                            {new Date(harvestData.harvestDate).toLocaleDateString("id-ID", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
+                            <strong>Tanggal Panen:</strong> {formatDate(harvestData.harvestDate)}
+                          </p>
+                        )}
+                        {harvestData.notes && (
+                          <p className="text-sm text-foreground mt-2">
+                            <strong>Catatan:</strong> {harvestData.notes}
                           </p>
                         )}
                       </div>
 
-                      {harvestData.totalSalesPrice && (
-                        <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                      {harvestData.estimatedIncome && (
+                        <div className="p-4 bg-accent/10 border-l-4 border-accent rounded-lg">
                           <p className="text-sm text-foreground">
-                            <strong>Total Harga Penjualan:</strong> Dengan harga jual Rp{" "}
-                            {Number(harvestData.pricePerKg).toLocaleString("id-ID")}
-                            /kg, total pendapatan penjualan Anda adalah{" "}
+                            <strong>Total Harga Penjualan:</strong> Dengan harga jual{" "}
+                            {formatRupiah(harvestData.pricePerKg || "0")}
+                            /kg, total pendapatan Anda adalah{" "}
                             <span className="text-accent font-bold">
-                              Rp {Number(harvestData.totalSalesPrice).toLocaleString("id-ID")}
+                              {formatRupiah(harvestData.estimatedIncome)}
                             </span>
                           </p>
                         </div>
@@ -608,14 +672,33 @@ export default function DeteksiPage() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-xl p-6">
+              {/* Disease Detection */}
+              <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
                 <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                  <AlertCircle className="text-accent" />
+                  <ScanSearch className="text-accent" />
                   Pendeteksi Penyakit Tanaman
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
+                    <label className="block text-sm font-semibold text-foreground mb-3">Pilih Tanaman untuk Deteksi</label>
+                    <select
+                      value={diseaseData.cropType}
+                      onChange={(e) =>
+                        setDiseaseData((prev) => ({
+                          ...prev,
+                          cropType: e.target.value as CropKey,
+                        }))
+                      }
+                      className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all mb-4"
+                    >
+                      {cropOptions.map((crop) => (
+                        <option key={crop.value} value={crop.value}>
+                          {crop.label}
+                        </option>
+                      ))}
+                    </select>
+
                     <label className="block text-sm font-semibold text-foreground mb-3">Ambil atau Unggah Gambar</label>
                     <div className="space-y-3">
                       <CameraCapture onCapture={handleImageCapture} disabled={diseaseData.imagePreview !== null} />
@@ -644,13 +727,20 @@ export default function DeteksiPage() {
                 <button
                   onClick={handleDetectDisease}
                   disabled={!diseaseData.imagePreview || diseaseData.isDetecting}
-                  className="w-full bg-accent text-accent-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="w-full bg-accent text-accent-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {diseaseData.isDetecting ? "Mendeteksi..." : "Deteksi Penyakit"}
+                  {diseaseData.isDetecting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 border-2 border-accent-foreground border-t-transparent rounded-full animate-spin"></span>
+                      Mendeteksi...
+                    </span>
+                  ) : (
+                    "Deteksi Penyakit"
+                  )}
                 </button>
 
                 {diseaseData.detectionResult && (
-                  <div className="mt-6 space-y-4">
+                  <div className="mt-6 space-y-4 animate-in fade-in-50">
                     <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="text-accent flex-shrink-0 mt-1" size={20} />
@@ -666,7 +756,7 @@ export default function DeteksiPage() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <div className="p-4 bg-green-500/10 border-l-4 border-green-500 rounded-lg">
                       <p className="text-xs font-semibold text-green-700 mb-3">PENCEGAHAN</p>
                       <ul className="space-y-2">
                         {diseaseData.detectionResult.prevention.map((item, index) => (
@@ -678,7 +768,7 @@ export default function DeteksiPage() {
                       </ul>
                     </div>
 
-                    <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                    <div className="p-4 bg-primary/10 border-l-4 border-primary rounded-lg">
                       <p className="text-xs font-semibold text-primary mb-3">PENANGANAN</p>
                       <ul className="space-y-2">
                         {diseaseData.detectionResult.treatment.map((item, index) => (

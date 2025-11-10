@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+interface HarvestRequestBody {
+  crop_type?: unknown;
+  area?: unknown;
+  planting_date?: unknown;
+  price_per_kg?: unknown;
+}
+
 // Enum untuk mencegah typo
 export enum CropType {
   TOMAT = "tomat",
@@ -190,23 +197,31 @@ const CROP_DATABASE: Record<string, CropData> = {
 };
 
 // Helper: Validasi input
-function validateInput(data: any) {
+function validateInput(data: HarvestRequestBody): string[] {
   const errors: string[] = [];
 
-  if (!data.crop_type || typeof data.crop_type !== "string") {
-    errors.push("crop_type harus string valid");
+  // Validasi crop_type
+  if (typeof data.crop_type !== "string" || data.crop_type.trim() === "") {
+    errors.push("crop_type harus string valid dan tidak kosong");
   }
 
-  if (!data.area || typeof data.area !== "number" || data.area <= 0) {
+  // Validasi area
+  if (typeof data.area !== "number" || !Number.isFinite(data.area) || data.area <= 0) {
     errors.push("area harus number positif (dalam m²)");
   }
 
-  if (!data.planting_date || isNaN(Date.parse(data.planting_date))) {
+  // Validasi planting_date
+  if (typeof data.planting_date !== "string" || data.planting_date.trim() === "") {
+    errors.push("planting_date harus string yang tidak kosong");
+  } else if (isNaN(Date.parse(data.planting_date))) {
     errors.push("planting_date harus format ISO date valid (YYYY-MM-DD)");
   }
 
-  if (data.price_per_kg !== undefined && (typeof data.price_per_kg !== "number" || data.price_per_kg < 0)) {
-    errors.push("price_per_kg harus number positif atau undefined");
+  // Validasi price_per_kg (opsional)
+  if (data.price_per_kg !== undefined && data.price_per_kg !== null) {
+    if (typeof data.price_per_kg !== "number" || !Number.isFinite(data.price_per_kg) || data.price_per_kg < 0) {
+      errors.push("price_per_kg harus number positif atau 0 jika didefinisikan");
+    }
   }
 
   return errors;
